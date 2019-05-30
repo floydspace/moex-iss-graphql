@@ -1,0 +1,37 @@
+{
+  "name": "moex-iss-graphql",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "nodemon",
+    "lint": "tslint -p ./tsconfig.json"
+  },
+  "author": "Victor Korzunin",
+  "license": "MIT",
+  "dependencies": {
+    "apollo-server": "^2.5.0",
+    "cheerio": "^1.0.0-rc.3",
+    "graphql": "^14.3.1",
+    "lodash": "^4.17.11",
+    "node-fetch": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.11",
+    "@types/graphql": "^14.2.0",
+    "@types/lodash": "^4.14.132",
+    "@types/node-fetch": "^2.3.4",
+    "nodemon": "^1.19.1",
+    "ts-node": "^8.2.0",
+    "tslint": "^5.17.0",
+    "typescript": "^3.4.5"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "ts",
+    "ignore": [
+      "src/**/*.spec.ts"
+    ],
+    "exec": "ts-node ./src/index.ts"
+  }
+}
