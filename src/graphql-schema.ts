@@ -1,5 +1,8 @@
+import axios from 'axios';
+import { pascalCase } from 'change-case';
 import * as cheerio from 'cheerio';
 import {
+  GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
   GraphQLFieldConfigMap,
   GraphQLInt,
@@ -9,8 +12,7 @@ import {
   GraphQLSchema,
   GraphQLString,
 } from 'graphql';
-import { keyBy } from 'lodash';
-import fetch from 'node-fetch';
+import { singular } from 'pluralize';
 
 const BASE_URL = 'https://iss.moex.com/iss';
 
@@ -20,23 +22,45 @@ const TypeMappings: { [key: string]: GraphQLScalarType } = {
 };
 
 export async function generateSchema(): Promise<GraphQLSchema> {
-  const ref = 5;
-  const entity = 'securities';
-  const refUrl = `${BASE_URL}/reference/${ref}`;
-  const entityUrl = `${BASE_URL}/${entity}.json`;
-  const [metaResult, refContent] = await Promise.all([
-    fetch(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.json()),
-    fetch(refUrl).then(res => res.text())
+  const queries = await Promise.all([
+    generateQueries(5),
+    generateQueries(40),
+    generateQueries(127),
+    generateQueries(132),
+    // generateQueries(191),
+    // generateQueries(193),
   ]);
-  const metadata = metaResult[entity].metadata;
-  const docs = keyBy(parseDocs(refContent), d => d.name);
 
   const query = new GraphQLObjectType({
     name: 'MoexIssQueries',
-    fields: () => ({
-      [entity]: {
+    fields: () => queries.reduce((acc, q) => ({...acc, ...q}), {} as GraphQLFieldConfigMap<void, void>)
+  });
+
+  return new GraphQLSchema({ query });
+}
+
+async function generateQueries(ref: number) {
+  const refUrl = `${BASE_URL}/reference/${ref}`;
+  const refContent = await axios.get(refUrl).then(res => res.data);
+
+  const parsedMetadata = await Promise.all(parseDocs(refContent).map(async block => {
+    const entityUrl = `${BASE_URL}/${block.name}.json`;
+    try {
+      const metaResult = await axios.get(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.data);
+      const metadata = metaResult[block.name].metadata;
+      return { entityUrl, block, metadata };
+    } catch (error) {
+      console.error(error.message);
+      return null;
+    }
+  }));
+
+  return parsedMetadata.filter(m => m).reduce((queries, { entityUrl, block, metadata }) => {
+    return {
+      ...queries,
+      [block.name]: {
         type: new GraphQLList(new GraphQLObjectType({
-          name: 'Security',
+          name: pascalCase(singular(block.name)),
           fields: () => Object.keys(metadata).reduce((fields, field) => {
             return {
               ...fields,
@@ -44,8 +68,8 @@ export async function generateSchema(): Promise<GraphQLSchema> {
             };
           }, {} as GraphQLFieldConfigMap<void, void>)
         })),
-        description: docs[entity].description,
-        args: docs[entity].args.reduce((args, arg) => {
+        description: block.description,
+        args: block.args.reduce((args, arg) => {
           return {
             ...args,
             [arg]: { type: GraphQLString }
@@ -54,25 +78,22 @@ export async function generateSchema(): Promise<GraphQLSchema> {
         resolve: async (_, args) => {
           const queryParams = Object.keys(args).map(key => `${key}=${args[key]}`).join('&');
           const url = `${entityUrl}?iss.meta=off&iss.data=on&iss.json=extended${queryParams ? '&' + queryParams : ''}`;
-          const response = await fetch(url);
-          const result = await response.json();
-          return result[1][entity];
+          const response = await axios.get(url);
+          return response.data[1][block.name];
         }
-      }
-    })
-  });
-
-  return new GraphQLSchema({ query });
+      } as GraphQLFieldConfig<void, void>
+    };
+  }, {} as GraphQLFieldConfigMap<void, void>);
 }
 
 function parseDocs(body: string): Block[] {
   const $ = cheerio.load(body);
-  const blocks: Block[] = $('body > dl')
+  const blocks: Block[] = $('body > dl > dt')
     .map((_, el) => {
       return {
-        name: $(el).find('> dt').text().split(' ')[0],
-        description: $(el).find('> dd > pre').text().trim(),
-        args: $(el).find('> dd > dl > dt').map((__, dt) => $(dt).text()).get()
+        name: $(el).text().split(' ')[0],
+        description: $(el).next().find('> pre').text().trim(),
+        args: $(el).next().find('> dl > dt').map((__, dt) => $(dt).text()).get()
       } as Block;
     })
     .get();
