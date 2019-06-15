@@ -1,10 +1,11 @@
 import axios from 'axios';
-import { pascalCase } from 'change-case';
+import { pascalCase, snakeCase } from 'change-case';
 import * as cheerio from 'cheerio';
 import {
   GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
   GraphQLFieldConfigMap,
+  GraphQLFloat,
   GraphQLInt,
   GraphQLList,
   GraphQLObjectType,
@@ -12,18 +13,23 @@ import {
   GraphQLSchema,
   GraphQLString,
 } from 'graphql';
+import { GraphQLDateTime } from 'graphql-iso-date';
 import { singular } from 'pluralize';
 
 const BASE_URL = 'https://iss.moex.com/iss';
 
 const TypeMappings: { [key: string]: GraphQLScalarType } = {
   int32: GraphQLInt,
-  string: GraphQLString
+  int64: GraphQLInt,
+  string: GraphQLString,
+  datetime: GraphQLDateTime,
+  double: GraphQLFloat,
 };
 
 export async function generateSchema(): Promise<GraphQLSchema> {
   const queries = await Promise.all([
     generateQueries(5),
+    generateQueries(24),
     generateQueries(40),
     generateQueries(127),
     generateQueries(132),
@@ -64,7 +70,10 @@ async function generateQueries(ref: number) {
           fields: () => Object.keys(metadata).reduce((fields, field) => {
             return {
               ...fields,
-              [field]: { type: TypeMappings[metadata[field].type], resolve: parent => parent[field] }
+              [snakeCase(field)]: {
+                type: TypeMappings[metadata[field].type],
+                resolve: parent => normalizeFieldValue(metadata[field].type, parent[field])
+              }
             };
           }, {} as GraphQLFieldConfigMap<void, void>)
         })),
@@ -84,6 +93,13 @@ async function generateQueries(ref: number) {
       } as GraphQLFieldConfig<void, void>
     };
   }, {} as GraphQLFieldConfigMap<void, void>);
+}
+
+function normalizeFieldValue(type: string, value: any) {
+  if (type === 'datetime' && value) {
+    return value.trim().replace(' ', 'T') + '+03:00'; // Moscow timezone
+  }
+  return value;
 }
 
 function parseDocs(body: string): Block[] {
