@@ -24,15 +24,18 @@ const TypeMappings: { [key: string]: GraphQLScalarType } = {
   string: GraphQLString,
   datetime: GraphQLDateTime,
   double: GraphQLFloat,
+  var: GraphQLString,
+  number: GraphQLInt,
 };
 
 export async function generateSchema(): Promise<GraphQLSchema> {
   const queries = await Promise.all([
     generateQueries(5),
     generateQueries(24),
-    generateQueries(40),
-    generateQueries(127),
-    generateQueries(132),
+    generateQueries(28),
+    // generateQueries(40),
+    // generateQueries(127),
+    // generateQueries(132),
     // generateQueries(191),
     // generateQueries(193),
   ]);
@@ -74,7 +77,7 @@ async function generateQueries(ref: number) {
         args: block.args.reduce((args, arg) => {
           return {
             ...args,
-            [arg]: { type: GraphQLString }
+            [arg.name]: { type: TypeMappings[arg.type], description: arg.description }
           };
         }, {} as GraphQLFieldConfigArgumentMap),
         resolve: async (_, args) => {
@@ -108,7 +111,14 @@ function parseDocs(body: string): Reference {
       return {
         name: $(el).text().split(' ')[0],
         description: $(el).next().find('> pre').text().trim(),
-        args: $(el).next().find('> dl > dt').map((__, dt) => $(dt).text()).get()
+        args: $(el).next().find('> dl > dt').map((__, dt) => {
+          const argMeta = $(dt).next();
+          return {
+            name: $(dt).text(),
+            description: argMeta.find('> pre').text().trim(),
+            type: argMeta.contents()[argMeta.contents().index(argMeta.find(`strong:contains('Type:')`)) + 1].data,
+          } as Argument;
+        }).get()
       } as Block;
     })
     .get();
@@ -123,5 +133,11 @@ interface Reference {
 interface Block {
   name: string;
   description: string;
-  args: string[];
+  args: Argument[];
+}
+
+interface Argument {
+  name: string;
+  description: string;
+  type: string;
 }
