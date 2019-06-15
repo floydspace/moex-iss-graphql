@@ -48,20 +48,13 @@ export async function generateSchema(): Promise<GraphQLSchema> {
 async function generateQueries(ref: number) {
   const refUrl = `${BASE_URL}/reference/${ref}`;
   const refContent = await axios.get(refUrl).then(res => res.data);
+  const { path, blocks } = parseDocs(refContent);
 
-  const parsedMetadata = await Promise.all(parseDocs(refContent).map(async block => {
-    const entityUrl = `${BASE_URL}/${block.name}.json`;
-    try {
-      const metaResult = await axios.get(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.data);
-      const metadata = metaResult[block.name].metadata;
-      return { entityUrl, block, metadata };
-    } catch (error) {
-      console.error(error.message);
-      return null;
-    }
-  }));
+  const entityUrl = `${BASE_URL}/${path}.json`;
+  const metaResult = await axios.get(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.data);
 
-  return parsedMetadata.filter(m => m).reduce((queries, { entityUrl, block, metadata }) => {
+  return blocks.reduce((queries, block) => {
+    const metadata = metaResult[block.name].metadata;
     return {
       ...queries,
       [block.name]: {
@@ -85,9 +78,14 @@ async function generateQueries(ref: number) {
           };
         }, {} as GraphQLFieldConfigArgumentMap),
         resolve: async (_, args) => {
-          const queryParams = Object.keys(args).map(key => `${key}=${args[key]}`).join('&');
-          const url = `${entityUrl}?iss.meta=off&iss.data=on&iss.json=extended${queryParams ? '&' + queryParams : ''}`;
-          const response = await axios.get(url);
+          const queryParams = [
+            'iss.meta=off',
+            'iss.data=on',
+            'iss.json=extended',
+            `iss.only=${block.name}`,
+            ...Object.keys(args).map(key => `${key}=${args[key]}`)
+          ].join('&');
+          const response = await axios.get(`${entityUrl}?${queryParams}`);
           return response.data[1][block.name];
         }
       } as GraphQLFieldConfig<void, void>
@@ -102,8 +100,9 @@ function normalizeFieldValue(type: string, value: any) {
   return value;
 }
 
-function parseDocs(body: string): Block[] {
+function parseDocs(body: string): Reference {
   const $ = cheerio.load(body);
+  const path = $('body > h1').text().match(/\/iss\/(.*)/)[1];
   const blocks: Block[] = $('body > dl > dt')
     .map((_, el) => {
       return {
@@ -113,7 +112,12 @@ function parseDocs(body: string): Block[] {
       } as Block;
     })
     .get();
-  return blocks;
+  return { path, blocks };
+}
+
+interface Reference {
+  path: string;
+  blocks: Block[];
 }
 
 interface Block {
