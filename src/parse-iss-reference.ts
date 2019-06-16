@@ -26,19 +26,19 @@ function parseRequiredArguments(path: string): string[] {
   return (path.match(/\[\w+\]/g) || []).map(arg => arg.match(/\w+/g)[0]);
 }
 
-interface Reference {
+export interface Reference {
   path: string;
   requiredArgs: string[];
   blocks: Block[];
 }
 
-interface Block {
+export interface Block {
   name: string;
   description: string;
   args: Argument[];
 }
 
-interface Argument {
+export interface Argument {
   name: string;
   description: string;
   type: string;

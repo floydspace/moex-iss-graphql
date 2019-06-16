@@ -17,7 +17,7 @@ import {
 import { GraphQLDate, GraphQLDateTime } from 'graphql-iso-date';
 import { singular } from 'pluralize';
 
-import { parseIssReference } from './parse-iss-reference';
+import { Argument, parseIssReference } from './parse-iss-reference';
 
 const BASE_URL = 'https://iss.moex.com/iss';
 
@@ -66,40 +66,15 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
   const { data: metaResult } = await axios.get(`${BASE_URL}/${path}.json?iss.meta=on&iss.data=off`);
 
   return blocks.reduce((queries, block) => {
-    const metadata = metaResult[block.name].metadata;
-    const queryName = options.prefix ? `${camelCase(options.prefix)}${pascalCase(block.name)}` : block.name;
+    const queryName = options.prefix
+      ? `${camelCase(options.prefix)}${pascalCase(block.name)}`
+      : block.name;
     return {
       ...queries,
       [queryName]: {
-        type: new GraphQLList(new GraphQLObjectType({
-          name: pascalCase(singular(queryName)),
-          fields: () => Object.keys(metadata).reduce((fields, field) => {
-            const type = TypeMappings[metadata[field].type];
-            assert(type, 'Unknown type: ' + metadata[field].type);
-            return {
-              ...fields,
-              [snakeCase(field)]: {
-                type,
-                resolve: parent => normalizeFieldValue(metadata[field].type, parent[field])
-              }
-            };
-          }, {} as GraphQLFieldConfigMap<void, void>)
-        })),
+        type: new GraphQLList(generateType(queryName, metaResult[block.name].metadata)),
         description: block.description,
-        args: {
-          ...requiredArgs.reduce((args, arg) => ({
-            ...args,
-            [arg]: { type: new GraphQLNonNull(GraphQLString) }
-          }), {} as GraphQLFieldConfigArgumentMap),
-          ...block.args.reduce((args, arg) => {
-            const type = TypeMappings[arg.type];
-            assert(type, 'Unknown type: ' + arg.type);
-            return {
-              ...args,
-              [arg.name]: { type, description: arg.description }
-            };
-          }, {} as GraphQLFieldConfigArgumentMap)
-        },
+        args: generateArguments(requiredArgs, block.args),
         resolve: async (_, args) => {
           const queryArgs = { ...args };
           let pathWithArgs = path;
@@ -120,6 +95,40 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
       } as GraphQLFieldConfig<void, void>
     };
   }, {} as GraphQLFieldConfigMap<void, void>);
+}
+
+function generateType(queryName: string, metadata: any) {
+  return new GraphQLObjectType({
+    name: pascalCase(singular(queryName)),
+    fields: () => Object.keys(metadata).reduce((fields, field) => {
+      const type = TypeMappings[metadata[field].type];
+      assert(type, 'Unknown type: ' + metadata[field].type);
+      return {
+        ...fields,
+        [snakeCase(field)]: {
+          type,
+          resolve: parent => normalizeFieldValue(metadata[field].type, parent[field])
+        }
+      };
+    }, {} as GraphQLFieldConfigMap<void, void>)
+  });
+}
+
+function generateArguments(requiredArgs: string[], otherArgs: Argument[]) {
+  return {
+    ...requiredArgs.reduce((args, arg) => ({
+      ...args,
+      [arg]: { type: new GraphQLNonNull(GraphQLString) }
+    }), {} as GraphQLFieldConfigArgumentMap),
+    ...otherArgs.reduce((args, arg) => {
+      const type = TypeMappings[arg.type];
+      assert(type, 'Unknown type: ' + arg.type);
+      return {
+        ...args,
+        [arg.name]: { type, description: arg.description }
+      };
+    }, {} as GraphQLFieldConfigArgumentMap)
+  } as GraphQLFieldConfigArgumentMap;
 }
 
 function normalizeFieldValue(type: string, value: any) {
