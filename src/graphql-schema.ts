@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { pascalCase, snakeCase } from 'change-case';
-import * as cheerio from 'cheerio';
 import {
   GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
@@ -15,6 +14,8 @@ import {
 } from 'graphql';
 import { GraphQLDateTime } from 'graphql-iso-date';
 import { singular } from 'pluralize';
+
+import { parseIssReference } from './parse-iss-reference';
 
 const BASE_URL = 'https://iss.moex.com/iss';
 
@@ -51,7 +52,7 @@ export async function generateSchema(): Promise<GraphQLSchema> {
 async function generateQueries(ref: number) {
   const refUrl = `${BASE_URL}/reference/${ref}`;
   const refContent = await axios.get(refUrl).then(res => res.data);
-  const { path, blocks } = parseDocs(refContent);
+  const { path, blocks } = parseIssReference(refContent);
 
   const entityUrl = `${BASE_URL}/${path}.json`;
   const metaResult = await axios.get(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.data);
@@ -101,43 +102,4 @@ function normalizeFieldValue(type: string, value: any) {
     return value.trim().replace(' ', 'T') + '+03:00'; // Moscow timezone
   }
   return value;
-}
-
-function parseDocs(body: string): Reference {
-  const $ = cheerio.load(body);
-  const path = $('body > h1').text().match(/\/iss\/(.*)/)[1];
-  const blocks: Block[] = $('body > dl > dt')
-    .map((_, el) => {
-      return {
-        name: $(el).text().split(' ')[0],
-        description: $(el).next().find('> pre').text().trim(),
-        args: $(el).next().find('> dl > dt').map((__, dt) => {
-          const argMeta = $(dt).next();
-          return {
-            name: $(dt).text(),
-            description: argMeta.find('> pre').text().trim(),
-            type: argMeta.contents()[argMeta.contents().index(argMeta.find(`strong:contains('Type:')`)) + 1].data,
-          } as Argument;
-        }).get()
-      } as Block;
-    })
-    .get();
-  return { path, blocks };
-}
-
-interface Reference {
-  path: string;
-  blocks: Block[];
-}
-
-interface Block {
-  name: string;
-  description: string;
-  args: Argument[];
-}
-
-interface Argument {
-  name: string;
-  description: string;
-  type: string;
 }
