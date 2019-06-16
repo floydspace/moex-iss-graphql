@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 export function parseIssReference(body: string): Reference {
   const $ = cheerio.load(body);
   const path = $('body > h1').text().match(/\/iss\/(.*)/)[1];
+  const requiredArgs = parseRequiredArguments(path);
   const blocks: Block[] = $('body > dl > dt').map((_, blockEl) => {
     const blockMeta = $(blockEl).next();
     return {
@@ -18,11 +19,16 @@ export function parseIssReference(body: string): Reference {
       }).get()
     } as Block;
   }).get();
-  return { path, blocks };
+  return { path, requiredArgs, blocks };
+}
+
+function parseRequiredArguments(path: string): string[] {
+  return (path.match(/\[\w+\]/g) || []).map(arg => arg.match(/\w+/g)[0]);
 }
 
 interface Reference {
   path: string;
+  requiredArgs: string[];
   blocks: Block[];
 }
 

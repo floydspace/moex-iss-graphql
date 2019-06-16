@@ -1,5 +1,6 @@
+import * as assert from 'assert';
 import axios from 'axios';
-import { pascalCase, snakeCase } from 'change-case';
+import { camelCase, pascalCase, snakeCase } from 'change-case';
 import {
   GraphQLFieldConfig,
   GraphQLFieldConfigArgumentMap,
@@ -7,12 +8,13 @@ import {
   GraphQLFloat,
   GraphQLInt,
   GraphQLList,
+  GraphQLNonNull,
   GraphQLObjectType,
   GraphQLScalarType,
   GraphQLSchema,
   GraphQLString,
 } from 'graphql';
-import { GraphQLDateTime } from 'graphql-iso-date';
+import { GraphQLDate, GraphQLDateTime } from 'graphql-iso-date';
 import { singular } from 'pluralize';
 
 import { parseIssReference } from './parse-iss-reference';
@@ -23,6 +25,7 @@ const TypeMappings: { [key: string]: GraphQLScalarType } = {
   int32: GraphQLInt,
   int64: GraphQLInt,
   string: GraphQLString,
+  date: GraphQLDate,
   datetime: GraphQLDateTime,
   double: GraphQLFloat,
   var: GraphQLString,
@@ -32,6 +35,7 @@ const TypeMappings: { [key: string]: GraphQLScalarType } = {
 export async function generateSchema(): Promise<GraphQLSchema> {
   const queries = await Promise.all([
     generateQueries(5),
+    generateQueries(13, { prefix: 'security' }),
     generateQueries(24),
     generateQueries(28),
     // generateQueries(40),
@@ -49,48 +53,69 @@ export async function generateSchema(): Promise<GraphQLSchema> {
   return new GraphQLSchema({ query });
 }
 
-async function generateQueries(ref: number) {
-  const refUrl = `${BASE_URL}/reference/${ref}`;
-  const refContent = await axios.get(refUrl).then(res => res.data);
-  const { path, blocks } = parseIssReference(refContent);
+interface GenerateQueriesOptions {
+  prefix?: string;
+}
 
-  const entityUrl = `${BASE_URL}/${path}.json`;
-  const metaResult = await axios.get(`${entityUrl}?iss.meta=on&iss.data=off`).then(res => res.data);
+async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
+  options = options || {};
+
+  const refUrl = `${BASE_URL}/reference/${ref}`;
+  const { data: refContent } = await axios.get(refUrl);
+  const { path, requiredArgs, blocks } = parseIssReference(refContent);
+  const { data: metaResult } = await axios.get(`${BASE_URL}/${path}.json?iss.meta=on&iss.data=off`);
 
   return blocks.reduce((queries, block) => {
     const metadata = metaResult[block.name].metadata;
+    const queryName = options.prefix ? `${camelCase(options.prefix)}${pascalCase(block.name)}` : block.name;
     return {
       ...queries,
-      [block.name]: {
+      [queryName]: {
         type: new GraphQLList(new GraphQLObjectType({
-          name: pascalCase(singular(block.name)),
+          name: pascalCase(singular(queryName)),
           fields: () => Object.keys(metadata).reduce((fields, field) => {
+            const type = TypeMappings[metadata[field].type];
+            assert(type, 'Unknown type: ' + metadata[field].type);
             return {
               ...fields,
               [snakeCase(field)]: {
-                type: TypeMappings[metadata[field].type],
+                type,
                 resolve: parent => normalizeFieldValue(metadata[field].type, parent[field])
               }
             };
           }, {} as GraphQLFieldConfigMap<void, void>)
         })),
         description: block.description,
-        args: block.args.reduce((args, arg) => {
-          return {
+        args: {
+          ...requiredArgs.reduce((args, arg) => ({
             ...args,
-            [arg.name]: { type: TypeMappings[arg.type], description: arg.description }
-          };
-        }, {} as GraphQLFieldConfigArgumentMap),
+            [arg]: { type: new GraphQLNonNull(GraphQLString) }
+          }), {} as GraphQLFieldConfigArgumentMap),
+          ...block.args.reduce((args, arg) => {
+            const type = TypeMappings[arg.type];
+            assert(type, 'Unknown type: ' + arg.type);
+            return {
+              ...args,
+              [arg.name]: { type, description: arg.description }
+            };
+          }, {} as GraphQLFieldConfigArgumentMap)
+        },
         resolve: async (_, args) => {
+          const queryArgs = { ...args };
+          let pathWithArgs = path;
+          for (const arg of requiredArgs) {
+            pathWithArgs = pathWithArgs.replace(`[${arg}]`, queryArgs[arg]);
+            delete queryArgs[arg];
+          }
           const queryParams = [
             'iss.meta=off',
             'iss.data=on',
             'iss.json=extended',
             `iss.only=${block.name}`,
-            ...Object.keys(args).map(key => `${key}=${args[key]}`)
+            ...Object.keys(queryArgs).map(key => `${key}=${queryArgs[key]}`)
           ].join('&');
-          const response = await axios.get(`${entityUrl}?${queryParams}`);
-          return response.data[1][block.name];
+          const { data } = await axios.get(`${BASE_URL}/${pathWithArgs}.json?${queryParams}`);
+          return data[1][block.name];
         }
       } as GraphQLFieldConfig<void, void>
     };
