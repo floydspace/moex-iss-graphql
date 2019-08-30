@@ -36,11 +36,32 @@ export async function generateSchema(): Promise<GraphQLSchema> {
   const queries = await Promise.all([
     generateQueries(5),
     generateQueries(13, { prefix: 'security' }),
-    generateQueries(24),
-    generateQueries(28),
+    generateQueries(24, {
+      queryNameReplaces: {
+        turnoversprevdate: 'turnoversPreviousDate',
+        turnoverssectors: 'turnoversSectors',
+        turnoverssectorsprevdate: 'turnoversSectorsPreviousDate',
+      }
+    }),
+    generateQueries(28, {
+      queryNameReplaces: {
+        boardgroups: 'boardGroups',
+        securitytypes: 'securityTypes',
+        securitygroups: 'securityGroups',
+        securitycollections: 'securityCollections',
+      }
+    }),
     generateQueries(160, { prefix: 'security' }),
     generateQueries(214, { prefix: 'security' }),
-    generateQueries(95, { prefix: 'engine', defaultArgs: { engine: 'stock' } }),
+    generateQueries(95, {
+      prefix: 'engine',
+      defaultArgs: { engine: 'stock' },
+      queryNameReplaces: {
+        turnoversprevdate: 'turnoversPreviousDate',
+        turnoverssectors: 'turnoversSectors',
+        turnoverssectorsprevdate: 'turnoversSectorsPreviousDate',
+      }
+    }),
     // generateQueries(40),
     // generateQueries(127),
     // generateQueries(132),
@@ -59,6 +80,7 @@ export async function generateSchema(): Promise<GraphQLSchema> {
 interface GenerateQueriesOptions {
   prefix?: string;
   defaultArgs?: { [key: string]: string };
+  queryNameReplaces?: { [key: string]: string };
 }
 
 async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
@@ -68,7 +90,7 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
   const { data: refContent } = await axios.get(refUrl);
   const { path, requiredArgs, blocks } = parseIssReference(refContent);
   let pathWithDefaultArgs = path;
-  for (const arg in options && options.defaultArgs) {
+  for (const arg in options.defaultArgs) {
     if (options.defaultArgs.hasOwnProperty(arg)) {
       pathWithDefaultArgs = pathWithDefaultArgs.replace(`[${arg}]`, options.defaultArgs[arg]);
     }
@@ -76,9 +98,10 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
   const { data: metaResult } = await axios.get(`${BASE_URL}/${pathWithDefaultArgs}.json?iss.meta=on&iss.data=off`);
 
   return blocks.reduce((queries, block) => {
+    const replacedBlockName = options.queryNameReplaces && options.queryNameReplaces[block.name] || block.name;
     const queryName = options.prefix
-      ? `${camelCase(options.prefix)}${pascalCase(block.name)}`
-      : block.name;
+      ? `${camelCase(options.prefix)}${pascalCase(replacedBlockName)}`
+      : replacedBlockName;
     return {
       ...queries,
       [queryName]: {
