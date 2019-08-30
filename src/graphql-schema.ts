@@ -38,6 +38,9 @@ export async function generateSchema(): Promise<GraphQLSchema> {
     generateQueries(13, { prefix: 'security' }),
     generateQueries(24),
     generateQueries(28),
+    generateQueries(160, { prefix: 'security' }),
+    generateQueries(214, { prefix: 'security' }),
+    generateQueries(95, { prefix: 'engine', defaultArgs: { engine: 'stock' } }),
     // generateQueries(40),
     // generateQueries(127),
     // generateQueries(132),
@@ -55,6 +58,7 @@ export async function generateSchema(): Promise<GraphQLSchema> {
 
 interface GenerateQueriesOptions {
   prefix?: string;
+  defaultArgs?: { [key: string]: string };
 }
 
 async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
@@ -63,7 +67,13 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
   const refUrl = `${BASE_URL}/reference/${ref}`;
   const { data: refContent } = await axios.get(refUrl);
   const { path, requiredArgs, blocks } = parseIssReference(refContent);
-  const { data: metaResult } = await axios.get(`${BASE_URL}/${path}.json?iss.meta=on&iss.data=off`);
+  let pathWithDefaultArgs = path;
+  for (const arg in options && options.defaultArgs) {
+    if (options.defaultArgs.hasOwnProperty(arg)) {
+      pathWithDefaultArgs = pathWithDefaultArgs.replace(`[${arg}]`, options.defaultArgs[arg]);
+    }
+  }
+  const { data: metaResult } = await axios.get(`${BASE_URL}/${pathWithDefaultArgs}.json?iss.meta=on&iss.data=off`);
 
   return blocks.reduce((queries, block) => {
     const queryName = options.prefix
@@ -74,7 +84,7 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
       [queryName]: {
         type: new GraphQLList(generateType(queryName, metaResult[block.name].metadata)),
         description: block.description,
-        args: generateArguments(requiredArgs, block.args),
+        args: generateArguments(requiredArgs, block.args, options.defaultArgs),
         resolve: async (_, args) => {
           const queryArgs = { ...args };
           let pathWithArgs = path;
@@ -114,12 +124,15 @@ function generateType(queryName: string, metadata: any) {
   });
 }
 
-function generateArguments(requiredArgs: string[], otherArgs: Argument[]) {
+function generateArguments(requiredArgs: string[], otherArgs: Argument[], defaultArgs?: { [key: string]: string }) {
   return {
-    ...requiredArgs.reduce((args, arg) => ({
-      ...args,
-      [arg]: { type: new GraphQLNonNull(GraphQLString) }
-    }), {} as GraphQLFieldConfigArgumentMap),
+    ...requiredArgs.reduce((args, arg) => {
+      const defaultValue = defaultArgs && defaultArgs[arg];
+      return {
+        ...args,
+        [arg]: { type: defaultValue !== undefined ? GraphQLString : new GraphQLNonNull(GraphQLString), defaultValue }
+      };
+    }, {} as GraphQLFieldConfigArgumentMap),
     ...otherArgs.reduce((args, arg) => {
       const type = TypeMappings[arg.type];
       assert(type, 'Unknown type: ' + arg.type);
