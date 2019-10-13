@@ -5,6 +5,7 @@ import { generateSchema } from './graphql-schema';
 async function startApp() {
   const server = new ApolloServer({
     schema: await generateSchema(),
+    tracing: true
   });
 
   return server.listen();

@@ -109,25 +109,32 @@ async function generateQueries(ref: number, options?: GenerateQueriesOptions) {
         description: block.description,
         args: generateArguments(requiredArgs, block.args, options.defaultArgs),
         resolve: async (_, args) => {
-          const queryArgs = { ...args };
-          let pathWithArgs = path;
-          for (const arg of requiredArgs) {
-            pathWithArgs = pathWithArgs.replace(`[${arg}]`, queryArgs[arg]);
-            delete queryArgs[arg];
-          }
-          const queryParams = [
-            'iss.meta=off',
-            'iss.data=on',
-            'iss.json=extended',
-            `iss.only=${block.name}`,
-            ...Object.keys(queryArgs).map(key => `${key}=${queryArgs[key]}`)
-          ].join('&');
-          const { data } = await axios.get(`${BASE_URL}/${pathWithArgs}.json?${queryParams}`);
-          return data[1][block.name];
+          const url = buildUrl(path, args, requiredArgs, block.name);
+          const { data: [, resultBlocks] } = await axios.get(url);
+          return resultBlocks[block.name];
         }
       } as GraphQLFieldConfig<void, void>
     };
   }, {} as GraphQLFieldConfigMap<void, void>);
+}
+
+function buildUrl(path: string, args: { [key: string]: any }, requiredArgs: string[], blockName: string) {
+  const queryArgs = { ...args };
+  let pathWithArgs = path;
+  for (const arg of requiredArgs) {
+    pathWithArgs = pathWithArgs.replace(`[${arg}]`, queryArgs[arg]);
+    delete queryArgs[arg];
+  }
+
+  const queryParams = [
+    'iss.meta=off',
+    'iss.data=on',
+    'iss.json=extended',
+    `iss.only=${blockName}`,
+    ...Object.keys(queryArgs).map(key => `${key}=${queryArgs[key]}`)
+  ].join('&');
+
+  return `${BASE_URL}/${pathWithArgs}.json?${queryParams}`;
 }
 
 function generateType(queryName: string, metadata: any) {
