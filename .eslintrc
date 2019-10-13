@@ -1,0 +1,102 @@
+{
+  "extends": [
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parserOptions": {
+    "project": "tsconfig.json"
+  },
+  "plugins": [
+    "import"
+  ],
+  "rules": {
+    "@typescript-eslint/array-type": "warn",
+    "@typescript-eslint/explicit-member-accessibility": [
+      "warn",
+      {
+        "overrides": {
+          "constructors": "off"
+        }
+      }
+    ],
+    "@typescript-eslint/indent": ["warn", 2],
+    "@typescript-eslint/member-ordering": "warn",
+    "@typescript-eslint/no-parameter-properties": "off",
+    "@typescript-eslint/no-use-before-declare": "off",
+    "@typescript-eslint/no-use-before-define": ["error", { "functions": false, "classes": false }],
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/prefer-for-of": "warn",
+    "@typescript-eslint/prefer-function-type": "warn",
+    "@typescript-eslint/consistent-type-definitions": "warn",
+    "@typescript-eslint/quotes": "off",
+    "@typescript-eslint/semi": "warn",
+    "@typescript-eslint/unified-signatures": "warn",
+    "arrow-body-style": "warn",
+    "arrow-parens": [
+      "off",
+      "as-needed"
+    ],
+    "complexity": "off",
+    "constructor-super": "warn",
+    "curly": "warn",
+    "dot-notation": "off",
+    "eol-last": "warn",
+    "eqeqeq": [
+      "warn",
+      "smart"
+    ],
+    "guard-for-in": "warn",
+    "id-match": "warn",
+    "import/order": "warn",
+    "max-classes-per-file": [
+      "warn",
+      1
+    ],
+    "max-len": [
+      "warn",
+      {
+        "code": 120
+      }
+    ],
+    "new-parens": "warn",
+    "no-bitwise": "warn",
+    "no-caller": "warn",
+    "no-cond-assign": "warn",
+    "no-console": ["warn", { "allow": ["info"] }],
+    "no-debugger": "warn",
+    "no-empty": "warn",
+    "no-eval": "warn",
+    "no-fallthrough": "off",
+    "no-invalid-this": "off",
+    "no-multiple-empty-lines": "warn",
+    "no-new-wrappers": "warn",
+    "no-shadow": [
+      "warn",
+      {
+        "hoist": "all"
+      }
+    ],
+    "no-throw-literal": "warn",
+    "no-trailing-spaces": "warn",
+    "no-undef-init": "warn",
+    "no-underscore-dangle": "warn",
+    "no-unsafe-finally": "warn",
+    "no-unused-expressions": "warn",
+    "no-unused-labels": "warn",
+    "object-shorthand": "warn",
+    "quote-props": [
+      "warn",
+      "consistent-as-needed"
+    ],
+    "radix": "warn",
+    "space-before-function-paren": [
+      "warn",
+      {
+        "anonymous": "never",
+        "asyncArrow": "always",
+        "named": "never"
+      }
+    ],
+    "use-isnan": "warn",
+    "valid-typeof": "off"
+  }
+}

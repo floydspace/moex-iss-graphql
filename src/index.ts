@@ -11,5 +11,5 @@ async function startApp() {
 }
 
 startApp().then(({ url }) => {
-  console.log(`App is ready at ${url}`);
+  console.info(`App is ready at ${url}`);
 });
