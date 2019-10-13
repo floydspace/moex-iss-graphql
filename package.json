@@ -8,29 +8,29 @@
   "author": "Victor Korzunin",
   "license": "MIT",
   "dependencies": {
-    "apollo-server": "^2.5.0",
+    "apollo-server": "^2.9.6",
     "axios": "^0.19.0",
     "change-case": "^3.1.0",
     "cheerio": "^1.0.0-rc.3",
-    "graphql": "^14.3.1",
+    "graphql": "^14.5.8",
     "graphql-iso-date": "^3.6.1",
     "pluralize": "^8.0.0"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/change-case": "^2.3.1",
-    "@types/cheerio": "^0.22.11",
-    "@types/graphql": "^14.2.0",
-    "@types/graphql-iso-date": "^3.3.1",
-    "@types/node-fetch": "^2.3.4",
+    "@types/cheerio": "^0.22.13",
+    "@types/graphql": "^14.5.0",
+    "@types/graphql-iso-date": "^3.3.3",
+    "@types/node-fetch": "^2.5.2",
     "@types/pluralize": "0.0.29",
     "@typescript-eslint/eslint-plugin": "^2.3.3",
     "@typescript-eslint/parser": "^2.3.3",
     "eslint": "^6.5.1",
     "eslint-plugin-import": "^2.18.2",
-    "nodemon": "^1.19.1",
-    "ts-node": "^8.2.0",
-    "typescript": "^3.4.5"
+    "nodemon": "^1.19.3",
+    "ts-node": "^8.4.1",
+    "typescript": "^3.6.4"
   },
   "nodemonConfig": {
     "watch": [
