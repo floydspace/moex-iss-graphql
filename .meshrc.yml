@@ -1,0 +1,6 @@
+sources:
+  - name: Securities
+    handler:
+      moexiss:
+        baseUrl: https://iss.moex.com/iss
+        reference: 5

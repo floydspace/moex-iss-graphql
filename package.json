@@ -2,17 +2,20 @@
   "name": "moex-iss-graphql",
   "version": "0.0.1",
   "scripts": {
-    "start": "nodemon",
+    "start": "graphql-mesh serve",
     "lint": "eslint . --ext .ts"
   },
   "author": "Victor Korzunin",
   "license": "MIT",
   "dependencies": {
-    "apollo-server": "^2.9.6",
+    "@graphql-mesh/cli": "^0.10.0",
+    "@graphql-mesh/types": "^0.13.0",
+    "@graphql-mesh/utils": "^0.6.0",
+    "apollo-server": "^2.18.1",
     "axios": "^0.19.0",
     "change-case": "^3.1.0",
     "cheerio": "^1.0.0-rc.3",
-    "graphql": "^14.5.8",
+    "graphql": "^14.7.0",
     "graphql-iso-date": "^3.6.1",
     "pluralize": "^8.0.0"
   },
@@ -20,7 +23,6 @@
     "@types/axios": "^0.14.0",
     "@types/change-case": "^2.3.1",
     "@types/cheerio": "^0.22.13",
-    "@types/graphql": "^14.5.0",
     "@types/graphql-iso-date": "^3.3.3",
     "@types/node-fetch": "^2.5.2",
     "@types/pluralize": "0.0.29",
