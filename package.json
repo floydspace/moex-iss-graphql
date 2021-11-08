@@ -8,7 +8,7 @@
   "author": "Victor Korzunin",
   "license": "MIT",
   "dependencies": {
-    "apollo-server": "^2.9.6",
+    "apollo-server": "^2.25.3",
     "axios": "^0.19.0",
     "change-case": "^3.1.0",
     "cheerio": "^1.0.0-rc.3",
